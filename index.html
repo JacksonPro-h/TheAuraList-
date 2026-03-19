@@ -664,40 +664,52 @@ nav.mnav{display:flex;align-items:stretch;gap:0;flex:1}
 
 <div id="toasts"></div>
 
-<script>
+<script type="module">
 // ═══════════════════════════════════════════
-//  CONSTANTS — separate localStorage namespace from v1
+//  FIREBASE SETUP
 // ═══════════════════════════════════════════
-const NS = 'aura2_'; // different prefix = totally separate data
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import {
+  getFirestore, collection, doc,
+  getDocs, getDoc, addDoc, setDoc, updateDoc, deleteDoc,
+  query, orderBy, onSnapshot, serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyB0iH1e7oKt8mbompTLnDZMWEG1mzOyIVc",
+  authDomain: "auralistgd.firebaseapp.com",
+  projectId: "auralistgd",
+  storageBucket: "auralistgd.firebasestorage.app",
+  messagingSenderId: "873722782833",
+  appId: "1:873722782833:web:fa4d8be8358f50314b67d0"
+};
+
+const fbApp = initializeApp(firebaseConfig);
+const db = getFirestore(fbApp);
+
+// ═══════════════════════════════════════════
+//  CONSTANTS
+// ═══════════════════════════════════════════
 const ADMIN_PW = 'Jackson09';
 
 // ═══════════════════════════════════════════
-//  STORE
+//  STATE
 // ═══════════════════════════════════════════
-const DB = {
-  get levels(){ return JSON.parse(localStorage.getItem(NS+'levels')||'[]') },
-  set levels(v){ localStorage.setItem(NS+'levels',JSON.stringify(v)) },
-  get subs(){ return JSON.parse(localStorage.getItem(NS+'subs')||'[]') },
-  set subs(v){ localStorage.setItem(NS+'subs',JSON.stringify(v)) },
-  get users(){ return JSON.parse(localStorage.getItem(NS+'users')||'[]') },
-  set users(v){ localStorage.setItem(NS+'users',JSON.stringify(v)) },
-};
-
-// ═══════════════════════════════════════════
-//  SESSION
-// ═══════════════════════════════════════════
-let session = JSON.parse(sessionStorage.getItem(NS+'session')||'null');
+let levels = [];
+let subs   = [];
+let users  = [];
+let session = JSON.parse(sessionStorage.getItem('aura_session') || 'null');
 let isAdmin = false;
-let selId = null;
+let selId   = null;
 
-function saveSession(u){ session=u; sessionStorage.setItem(NS+'session',JSON.stringify(u)) }
-function clearSession(){ session=null; sessionStorage.removeItem(NS+'session') }
+function saveSession(u){ session=u; sessionStorage.setItem('aura_session', JSON.stringify(u)); }
+function clearSession(){ session=null; sessionStorage.removeItem('aura_session'); }
 
 // ═══════════════════════════════════════════
 //  UTILS
 // ═══════════════════════════════════════════
-function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6) }
-function esc(s){ return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'):'' }
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+function esc(s){ return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'):''; }
 function ytVideoId(url){
   if(!url) return null; let v=null;
   try{
@@ -707,27 +719,46 @@ function ytVideoId(url){
   }catch(e){}
   return v||null;
 }
-function ytEmbed(url){ const v=ytVideoId(url); return v?`https://www.youtube.com/embed/${v}?rel=0`:null; }
 function ytThumb(url){ const v=ytVideoId(url); return v?`https://img.youtube.com/vi/${v}/hqdefault.jpg`:null; }
 function ytWatch(url){ const v=ytVideoId(url); return v?`https://www.youtube.com/watch?v=${v}`:url; }
-function loadYTEmbed(thumbWrap, lvId){
-  const lv=DB.levels.find(l=>l.id===lvId);
-  if(!lv) return;
-  const v=ytVideoId(lv.video);
-  if(!v) return;
-  const box=document.getElementById('vidBox_'+lvId);
-  if(!box) return;
-  box.innerHTML=`<iframe src="https://www.youtube.com/embed/${v}?autoplay=1&rel=0" allowfullscreen allow="autoplay;encrypted-media;picture-in-picture" style="position:absolute;inset:0;width:100%;height:100%;border:none"></iframe>`;
-}
 function toast(msg,type=''){
   const el=document.createElement('div');
   el.className='toast '+(type||'');el.textContent=msg;
   document.getElementById('toasts').appendChild(el);
   setTimeout(()=>el.remove(),3000);
 }
-function openModal(id){ document.getElementById(id).classList.add('open') }
-function closeModal(id){ document.getElementById(id).classList.remove('open') }
-document.querySelectorAll('.mov').forEach(o=>o.addEventListener('click',e=>{ if(e.target===o) o.classList.remove('open') }));
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.mov').forEach(o=>o.addEventListener('click',e=>{ if(e.target===o) o.classList.remove('open'); }));
+function showLoading(el){ el.innerHTML='<div style="padding:24px;text-align:center;color:var(--mut);font-size:.82rem">Loading…</div>'; }
+
+// ═══════════════════════════════════════════
+//  FIREBASE LISTENERS (real-time)
+// ═══════════════════════════════════════════
+function initListeners(){
+  // Levels — real-time
+  onSnapshot(collection(db,'levels'), snap=>{
+    levels = snap.docs.map(d=>({id:d.id,...d.data()}));
+    levels.sort((a,b)=>a.rank-b.rank);
+    renderSB();
+    if(selId){ const lv=levels.find(l=>l.id===selId); if(lv) renderDet(selId); }
+    if(document.getElementById('pg-leaderboard').classList.contains('on')) renderLB();
+    if(document.getElementById('pg-admin').classList.contains('on')) renderAdmin();
+    if(document.getElementById('pg-submit').classList.contains('on')) renderSubmitArea();
+  });
+  // Submissions — real-time
+  onSnapshot(collection(db,'subs'), snap=>{
+    subs = snap.docs.map(d=>({id:d.id,...d.data()}));
+    if(selId) renderDet(selId);
+    if(document.getElementById('pg-leaderboard').classList.contains('on')) renderLB();
+    if(document.getElementById('pg-admin').classList.contains('on')) renderAdmin();
+  });
+  // Users — real-time
+  onSnapshot(collection(db,'users'), snap=>{
+    users = snap.docs.map(d=>({id:d.id,...d.data()}));
+    if(document.getElementById('pg-admin').classList.contains('on')) renderAdmin();
+  });
+}
 
 // ═══════════════════════════════════════════
 //  HEADER
@@ -741,7 +772,7 @@ function renderHeader(){
   } else if(session){
     const init=session.username.slice(0,2).toUpperCase();
     hend.innerHTML=`
-      <div class="user-chip" onclick="openUserMenu()" title="Your account">
+      <div class="user-chip" title="Signed in as ${esc(session.username)}">
         <div class="avatar">${esc(init)}</div>
         <span class="user-chip-name">${esc(session.username)}</span>
       </div>
@@ -753,11 +784,6 @@ function renderHeader(){
       <button class="hbtn" onclick="openModal('authModal');switchAuthTab('register')">Register</button>
       <button class="hbtn-outline" style="font-size:.68rem;font-weight:700;letter-spacing:.06em;padding:6px 11px" onclick="handleAdminBtn()">ADMIN</button>`;
   }
-}
-
-function openUserMenu(){
-  // simple — just show a toast for now; expand as needed
-  toast(`Signed in as ${session.username}`);
 }
 
 // ═══════════════════════════════════════════
@@ -774,18 +800,20 @@ function nav(pg){
   if(pg==='submit')      renderSubmitArea();
   if(pg==='admin')       renderAdmin();
 }
+window.nav = nav;
 
 // ═══════════════════════════════════════════
-//  AUTH — user accounts
+//  AUTH — user accounts (stored in Firestore)
 // ═══════════════════════════════════════════
 function switchAuthTab(tab){
-  document.getElementById('loginForm').style.display = tab==='login'?'block':'none';
-  document.getElementById('regForm').style.display   = tab==='register'?'block':'none';
+  document.getElementById('loginForm').style.display  = tab==='login'?'block':'none';
+  document.getElementById('regForm').style.display    = tab==='register'?'block':'none';
   document.getElementById('authTabLogin').classList.toggle('on', tab==='login');
   document.getElementById('authTabReg').classList.toggle('on', tab==='register');
 }
+window.switchAuthTab = switchAuthTab;
 
-function doRegister(){
+async function doRegister(){
   const username=document.getElementById('regUser').value.trim();
   const pw=document.getElementById('regPw').value;
   const pw2=document.getElementById('regPw2').value;
@@ -794,24 +822,22 @@ function doRegister(){
   if(!pw) return toast('Enter a password.','err');
   if(pw.length<6) return toast('Password must be at least 6 characters.','err');
   if(pw!==pw2) return toast('Passwords do not match.','err');
-  const users=DB.users;
   if(users.some(u=>u.username.toLowerCase()===username.toLowerCase()))
     return toast('Username already taken.','err');
-  const u={id:uid(),username,pw,banned:false,joined:new Date().toLocaleDateString()};
-  users.push(u);
-  DB.users=users;
-  saveSession({id:u.id,username:u.username});
+  const id = uid();
+  await setDoc(doc(db,'users',id),{username,pw,banned:false,joined:new Date().toLocaleDateString()});
+  saveSession({id,username});
   closeModal('authModal');
   renderHeader();
   renderSubmitArea();
   toast(`Welcome to The Aura List, ${username}! 🎉`,'ok');
 }
+window.doRegister = doRegister;
 
-function doLogin(){
+async function doLogin(){
   const username=document.getElementById('liUser').value.trim();
   const pw=document.getElementById('liPw').value;
   if(!username||!pw) return toast('Fill in all fields.','err');
-  const users=DB.users;
   const u=users.find(x=>x.username.toLowerCase()===username.toLowerCase()&&x.pw===pw);
   if(!u) return toast('Incorrect username or password.','err');
   if(u.banned) return toast('Your account has been banned.','err');
@@ -821,13 +847,10 @@ function doLogin(){
   renderSubmitArea();
   toast(`Welcome back, ${u.username}!`,'ok');
 }
+window.doLogin = doLogin;
 
-function logout(){
-  clearSession();
-  renderHeader();
-  renderSubmitArea();
-  toast('Signed out.');
-}
+function logout(){ clearSession(); renderHeader(); renderSubmitArea(); toast('Signed out.'); }
+window.logout = logout;
 
 // ═══════════════════════════════════════════
 //  ADMIN AUTH
@@ -838,6 +861,8 @@ function handleAdminBtn(){
   openModal('adminAuthModal');
   setTimeout(()=>document.getElementById('adminPwIn').focus(),60);
 }
+window.handleAdminBtn = handleAdminBtn;
+
 function doAdminLogin(){
   if(document.getElementById('adminPwIn').value===ADMIN_PW){
     isAdmin=true;
@@ -856,28 +881,23 @@ function doAdminLogin(){
     toast('Wrong password.','err');
   }
 }
-function logoutAdmin(){
-  isAdmin=false;
-  const t=document.getElementById('tab-admin');
-  if(t)t.remove();
-  renderHeader();
-  nav('list');
-  toast('Admin logged out.');
-}
+window.doAdminLogin = doAdminLogin;
+
+function logoutAdmin(){ isAdmin=false; const t=document.getElementById('tab-admin'); if(t)t.remove(); renderHeader(); nav('list'); toast('Admin logged out.'); }
+window.logoutAdmin = logoutAdmin;
 
 // ═══════════════════════════════════════════
 //  SIDEBAR
 // ═══════════════════════════════════════════
 function renderSB(){
   const q=(document.getElementById('srchIn').value||'').trim().toLowerCase();
-  const sorted=[...DB.levels].sort((a,b)=>a.rank-b.rank)
-    .filter(l=>!q||l.name.toLowerCase().includes(q)||l.creator.toLowerCase().includes(q));
+  const filtered=[...levels].filter(l=>!q||l.name.toLowerCase().includes(q)||l.creator.toLowerCase().includes(q));
   const ul=document.getElementById('sbList');
-  if(!sorted.length){
+  if(!filtered.length){
     ul.innerHTML=`<div class="sb-empty">${q?'No levels match your search.':'No levels on the list yet.'}</div>`;
     return;
   }
-  ul.innerHTML=sorted.map(lv=>{
+  ul.innerHTML=filtered.map(lv=>{
     const rc=lv.rank===1?'rk1':lv.rank===2?'rk2':lv.rank===3?'rk3':'rkn';
     return `<div class="li${selId===lv.id?' sel':''}" onclick="selectLv('${lv.id}')">
       <div class="li-rank ${rc}">${lv.rank}</div>
@@ -885,52 +905,39 @@ function renderSB(){
     </div>`;
   }).join('');
 }
+window.renderSB = renderSB;
 
-function selectLv(id){
-  selId=id;
-  renderSB();
-  renderDet(id);
-}
+function selectLv(id){ selId=id; renderSB(); renderDet(id); }
+window.selectLv = selectLv;
 
 // ═══════════════════════════════════════════
 //  LEVEL DETAIL
 // ═══════════════════════════════════════════
 function renderDet(id){
-  const lv=DB.levels.find(l=>l.id===id);
+  const lv=levels.find(l=>l.id===id);
   if(!lv) return;
-  const recs=DB.subs.filter(s=>s.levelId===id&&s.status==='accepted').sort((a,b)=>b.pct-a.pct);
-  const embed=ytEmbed(lv.video);
-
-  // hide welcome, show detail
-  const welcome=document.getElementById('lwelcome');
+  const recs=subs.filter(s=>s.levelId===id&&s.status==='accepted').sort((a,b)=>b.pct-a.pct);
+  const thumb=ytThumb(lv.video);
+  const watchUrl=ytWatch(lv.video);
+  document.getElementById('lwelcome').style.display='none';
   const det=document.getElementById('detPanel');
-  welcome.style.display='none';
   det.style.display='block';
-  det.style.flex='none'; // prevent flex-stretch on the panel
-
+  det.style.flex='none';
   const adminBar=isAdmin?`<div class="d-adminrow"><button class="btn-sm-edit" onclick="openEditLv('${lv.id}')">✏ Edit Level</button></div>`:'';
-
   det.innerHTML=`
     <div class="vid-box" id="vidBox_${lv.id}">
       ${lv.video
-        ?`<a href="${ytWatch(lv.video)}" target="_blank" style="position:absolute;inset:0;display:block;background:#000;">
-            <img src="${ytThumb(lv.video)}" style="width:100%;height:100%;object-fit:cover;opacity:.9;transition:opacity .2s;" onmouseover="this.style.opacity='.7'" onmouseout="this.style.opacity='.9'" onerror="this.style.display='none'" />
+        ?`<a href="${esc(watchUrl)}" target="_blank" style="position:absolute;inset:0;display:block;background:#000;">
+            <img src="${thumb||''}" style="width:100%;height:100%;object-fit:cover;opacity:.9;transition:opacity .2s;" onmouseover="this.style.opacity='.7'" onmouseout="this.style.opacity='.9'" onerror="this.style.display='none'"/>
           </a>`
         :`<div class="vid-ph"><div class="vid-ph-ico">▶</div><div class="vid-ph-txt">No video added yet</div></div>`}
     </div>
-
     <div class="d-rnklbl">RANK #${lv.rank} · THE AURA LIST</div>
     <div class="d-name">${esc(lv.name)}</div>
-    <div class="d-meta">
-      by <b>${esc(lv.creator)}</b>
-      &nbsp;·&nbsp; verified by <b>${esc(lv.verifier||'—')}</b>
-      &nbsp;·&nbsp; min. <b>${lv.minPct||100}%</b> to qualify
-    </div>
+    <div class="d-meta">by <b>${esc(lv.creator)}</b> &nbsp;·&nbsp; verified by <b>${esc(lv.verifier||'—')}</b> &nbsp;·&nbsp; min. <b>${lv.minPct||100}%</b> to qualify</div>
     ${lv.desc?`<div class="d-desc">${esc(lv.desc)}</div>`:''}
     ${adminBar}
-    <div class="sec-hd">
-      <span>Accepted Records (${recs.length})</span>
-    </div>
+    <div class="sec-hd"><span>Accepted Records (${recs.length})</span></div>
     ${recs.length===0
       ?`<div class="no-rec">No records yet. <a href="#" style="color:var(--v2)" onclick="nav('submit');return false">Be the first to submit!</a></div>`
       :`<table class="rtable">
@@ -941,21 +948,21 @@ function renderDet(id){
             <td class="r-pct">${r.pct}%</td>
             <td>${r.vidUrl?`<a class="r-link" href="${esc(r.vidUrl)}" target="_blank">Watch ↗</a>`:'—'}</td>
           </tr>`).join('')}</tbody>
-        </table>`}
-  `;
+        </table>`}`;
 }
+window.renderDet = renderDet;
 
 // ═══════════════════════════════════════════
 //  LEADERBOARD
 // ═══════════════════════════════════════════
 function renderLB(){
-  const acc=DB.subs.filter(s=>s.status==='accepted');
+  const acc=subs.filter(s=>s.status==='accepted');
   const map={};
   acc.forEach(s=>{
     const k=s.player.toLowerCase();
     if(!map[k]) map[k]={name:s.player,count:0,score:0};
     map[k].count++;
-    const lv=DB.levels.find(l=>l.id===s.levelId);
+    const lv=levels.find(l=>l.id===s.levelId);
     map[k].score+=Math.round((1000/(lv?lv.rank:999))*(s.pct/100));
   });
   const rows=Object.values(map).sort((a,b)=>b.score-a.score);
@@ -978,14 +985,16 @@ function renderLB(){
 // ═══════════════════════════════════════════
 //  ROULETTE
 // ═══════════════════════════════════════════
-function renderRoulette(picked){
-  const lvs=DB.levels;
+function renderRoulette(){
   const box=document.getElementById('rouContent');
-  if(!lvs.length){ box.innerHTML='<div class="rou-empty">No levels yet!</div>'; return; }
-  const lv=picked||lvs[Math.floor(Math.random()*lvs.length)];
-  const embed=ytEmbed(lv.video);
+  if(!levels.length){ box.innerHTML='<div class="rou-empty">No levels yet!</div>'; return; }
+  const lv=levels[Math.floor(Math.random()*levels.length)];
+  const thumb=ytThumb(lv.video);
+  const watchUrl=ytWatch(lv.video);
   box.innerHTML=`
-    ${embed?`<div style="position:relative;padding-top:50%;border-radius:6px;overflow:hidden;margin-bottom:14px"><iframe style="position:absolute;inset:0;width:100%;height:100%;border:none" src="${embed}" allowfullscreen></iframe></div>`:''}
+    ${lv.video?`<a href="${esc(watchUrl)}" target="_blank" style="display:block;position:relative;padding-top:50%;border-radius:6px;overflow:hidden;margin-bottom:14px;background:#000;">
+      ${thumb?`<img src="${thumb}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.85"/>`:``}
+    </a>`:''}
     <div style="font-size:.67rem;color:var(--mut);letter-spacing:.14em;text-transform:uppercase;margin-bottom:5px">RANK #${lv.rank}</div>
     <div class="rou-lv">${esc(lv.name)}</div>
     <div class="rou-cr">by ${esc(lv.creator)}</div>
@@ -996,13 +1005,14 @@ function spinRoulette(){
   btn.classList.add('spinning');
   setTimeout(()=>{ renderRoulette(); btn.classList.remove('spinning'); },380);
 }
+window.spinRoulette = spinRoulette;
 
 // ═══════════════════════════════════════════
-//  SUBMIT AREA (requires login)
+//  SUBMIT
 // ═══════════════════════════════════════════
 function renderSubmitArea(){
   const area=document.getElementById('submitArea');
-  if(!session && !isAdmin){
+  if(!session&&!isAdmin){
     area.innerHTML=`
       <div class="need-login">
         <div class="need-login-ico">🔒</div>
@@ -1015,8 +1025,7 @@ function renderSubmitArea(){
       </div>`;
     return;
   }
-  const lvs=[...DB.levels].sort((a,b)=>a.rank-b.rank);
-  const userName = isAdmin ? 'Admin' : session.username;
+  const userName=isAdmin?'Admin':session.username;
   area.innerHTML=`
     <div class="logged-as">
       <div class="avatar" style="width:22px;height:22px;font-size:.62rem">${esc(userName.slice(0,2).toUpperCase())}</div>
@@ -1028,7 +1037,7 @@ function renderSubmitArea(){
           <label class="flbl">Level *</label>
           <select class="fsel" id="sfLevel" required>
             <option value="">Select a level…</option>
-            ${lvs.map(l=>`<option value="${l.id}">#${l.rank} — ${esc(l.name)}</option>`).join('')}
+            ${levels.map(l=>`<option value="${l.id}">#${l.rank} — ${esc(l.name)}</option>`).join('')}
           </select>
         </div>
         <div class="frow">
@@ -1055,50 +1064,42 @@ function renderSubmitArea(){
       <div class="sok-ico">✅</div>
       <div class="sok-msg">Record submitted!</div>
       <div class="sok-sub">Pending review. Thanks!</div>
-      <button class="spin-btn" style="margin-top:6px" onclick="resetSubForm()">Submit another</button>
+      <button class="spin-btn" style="margin-top:6px" onclick="renderSubmitArea()">Submit another</button>
     </div>`;
 }
 
-function doSubmit(e){
+async function doSubmit(e){
   e.preventDefault();
   const lvId=document.getElementById('sfLevel').value;
   const pct=parseInt(document.getElementById('sfPct').value);
   const vidUrl=document.getElementById('sfVid').value.trim();
   const mobile=document.getElementById('sfMob').checked;
   const notes=document.getElementById('sfNotes').value.trim();
-  const player = isAdmin ? 'Admin' : session.username;
+  const player=isAdmin?'Admin':session.username;
   if(!lvId) return toast('Select a level.','err');
   if(!pct||pct<1||pct>100) return toast('Invalid percentage.','err');
   if(!vidUrl) return toast('Provide a video link.','err');
-  const lv=DB.levels.find(l=>l.id===lvId);
-  if(lv&&pct<(lv.minPct||100)) return toast(`Min. ${lv.minPct||100}% required for this level.`,'err');
-  // dup check
-  if(DB.subs.some(s=>s.levelId===lvId&&s.player.toLowerCase()===player.toLowerCase()&&s.status!=='rejected'&&s.pct>=pct))
+  const lv=levels.find(l=>l.id===lvId);
+  if(lv&&pct<(lv.minPct||100)) return toast(`Min. ${lv.minPct||100}% required.`,'err');
+  if(subs.some(s=>s.levelId===lvId&&s.player.toLowerCase()===player.toLowerCase()&&s.status!=='rejected'&&s.pct>=pct))
     return toast('Similar submission already pending or accepted.','warn');
-  const subs=DB.subs;
-  subs.push({id:uid(),levelId:lvId,player,pct,vidUrl,mobile,notes,status:'pending',date:new Date().toLocaleDateString()});
-  DB.subs=subs;
+  await addDoc(collection(db,'subs'),{levelId:lvId,player,pct,vidUrl,mobile,notes,status:'pending',date:new Date().toLocaleDateString(),ts:Date.now()});
   document.getElementById('subFormCard').style.display='none';
   document.getElementById('subOk').classList.add('show');
 }
-
-function resetSubForm(){
-  renderSubmitArea();
-}
+window.doSubmit = doSubmit;
 
 // ═══════════════════════════════════════════
 //  ADMIN PANEL
 // ═══════════════════════════════════════════
 function renderAdmin(){
-  if(!isAdmin){ nav('list'); return; }
-  const subs=DB.subs; const lvs=DB.levels; const users=DB.users;
-  const lvMap=Object.fromEntries(lvs.map(l=>[l.id,l]));
+  if(!isAdmin) return;
+  const lvMap=Object.fromEntries(levels.map(l=>[l.id,l]));
   const pending=subs.filter(s=>s.status==='pending');
-  const history=subs.filter(s=>s.status!=='pending').slice().reverse().slice(0,60);
+  const history=subs.filter(s=>s.status!=='pending').slice().sort((a,b)=>(b.ts||0)-(a.ts||0)).slice(0,60);
 
   document.getElementById('pendBadge').textContent=pending.length?`(${pending.length})`:'';
 
-  // Pending
   document.getElementById('pendList').innerHTML=
     !pending.length?'<div class="adm-empty">No pending submissions. 🎉</div>':
     pending.map(s=>{
@@ -1115,29 +1116,25 @@ function renderAdmin(){
       </div>`;
     }).join('');
 
-  // Levels
-  const sorted=[...lvs].sort((a,b)=>a.rank-b.rank);
   document.getElementById('admLvList').innerHTML=
-    !sorted.length?'<div class="adm-empty">No levels yet.</div>':
-    sorted.map(lv=>`<div class="alv-row">
+    !levels.length?'<div class="adm-empty">No levels yet.</div>':
+    levels.map(lv=>`<div class="alv-row">
       <div class="alv-rk">${lv.rank}</div>
       <div class="alv-inf"><div class="alv-nm">${esc(lv.name)}</div><div class="alv-cr">by ${esc(lv.creator)}</div></div>
       <div class="alv-acts"><button class="btn-sm-edit" onclick="openEditLv('${lv.id}')">Edit</button></div>
     </div>`).join('');
 
-  // Users
   document.getElementById('admUserList').innerHTML=
     !users.length?'<div class="adm-empty">No registered users yet.</div>':
     users.map(u=>`<div class="user-row">
       <div class="u-av">${esc(u.username.slice(0,2).toUpperCase())}</div>
       <div class="u-inf">
         <div class="u-nm">${esc(u.username)}${u.banned?'<span class="mob-badge" style="background:rgba(248,113,113,.15);border-color:rgba(248,113,113,.3);color:var(--err)"> BANNED</span>':''}</div>
-        <div class="u-dt">Joined ${u.joined}</div>
+        <div class="u-dt">Joined ${u.joined||''}</div>
       </div>
       <button class="u-ban" onclick="toggleBan('${u.id}')">${u.banned?'Unban':'Ban'}</button>
     </div>`).join('');
 
-  // History
   document.getElementById('histList').innerHTML=
     !history.length?'<div class="adm-empty">No reviewed submissions yet.</div>':
     history.map(s=>{
@@ -1152,28 +1149,20 @@ function renderAdmin(){
     }).join('');
 }
 
-function reviewSub(id,status){
-  const subs=DB.subs;
-  const s=subs.find(x=>x.id===id);
-  if(!s) return;
-  s.status=status;
-  DB.subs=subs;
+async function reviewSub(id,status){
+  await updateDoc(doc(db,'subs',id),{status});
   toast(status==='accepted'?'Record accepted! ✓':'Record rejected.', status==='accepted'?'ok':'err');
-  renderAdmin();
-  if(selId) renderDet(selId);
 }
+window.reviewSub = reviewSub;
 
-function toggleBan(uid){
-  const users=DB.users;
+async function toggleBan(uid){
   const u=users.find(x=>x.id===uid);
   if(!u) return;
-  u.banned=!u.banned;
-  DB.users=users;
-  toast(u.banned?`${u.username} banned.`:`${u.username} unbanned.`, u.banned?'err':'ok');
-  // kick them if currently logged in
-  if(session&&session.id===uid&&u.banned){ clearSession(); renderHeader(); }
-  renderAdmin();
+  await updateDoc(doc(db,'users',uid),{banned:!u.banned});
+  toast(!u.banned?`${u.username} banned.`:`${u.username} unbanned.`, !u.banned?'err':'ok');
+  if(session&&session.id===uid&&!u.banned){ clearSession(); renderHeader(); }
 }
+window.toggleBan = toggleBan;
 
 // ═══════════════════════════════════════════
 //  ADD/EDIT LEVEL
@@ -1182,13 +1171,15 @@ function openAddLv(){
   document.getElementById('lvModalTitle').textContent='Add Level';
   document.getElementById('editLvId').value='';
   ['mlName','mlCreator','mlVerifier','mlVideo','mlDesc'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('mlRank').value=DB.levels.length+1;
+  document.getElementById('mlRank').value=levels.length+1;
   document.getElementById('mlMinPct').value='100';
   document.getElementById('delLvBtn').style.display='none';
   openModal('lvModal');
 }
+window.openAddLv = openAddLv;
+
 function openEditLv(id){
-  const lv=DB.levels.find(l=>l.id===id); if(!lv) return;
+  const lv=levels.find(l=>l.id===id); if(!lv) return;
   document.getElementById('lvModalTitle').textContent='Edit Level';
   document.getElementById('editLvId').value=id;
   document.getElementById('mlName').value=lv.name;
@@ -1201,7 +1192,9 @@ function openEditLv(id){
   document.getElementById('delLvBtn').style.display='inline-block';
   openModal('lvModal');
 }
-function saveLv(){
+window.openEditLv = openEditLv;
+
+async function saveLv(){
   const id=document.getElementById('editLvId').value;
   const name=document.getElementById('mlName').value.trim();
   const creator=document.getElementById('mlCreator').value.trim();
@@ -1213,31 +1206,35 @@ function saveLv(){
   if(!name) return toast('Level name required.','err');
   if(!creator) return toast('Creator required.','err');
   if(!rank||rank<1) return toast('Valid rank required.','err');
-  let lvs=DB.levels;
-  if(id){
-    const lv=lvs.find(l=>l.id===id); if(!lv) return;
-    if(lv.rank!==rank) lvs.forEach(l=>{ if(l.id!==id&&l.rank>=rank) l.rank++ });
-    Object.assign(lv,{name,creator,verifier,video,rank,minPct,desc});
-  } else {
-    lvs.forEach(l=>{ if(l.rank>=rank) l.rank++ });
-    lvs.push({id:uid(),name,creator,verifier,video,rank,minPct,desc});
+
+  // Shift ranks of existing levels
+  const batch = levels.filter(l=>l.id!==id&&l.rank>=rank);
+  for(const lv of batch){
+    await updateDoc(doc(db,'levels',lv.id),{rank:lv.rank+1});
   }
-  DB.levels=lvs;
+
+  if(id){
+    await updateDoc(doc(db,'levels',id),{name,creator,verifier,video,rank,minPct,desc});
+  } else {
+    await addDoc(collection(db,'levels'),{name,creator,verifier,video,rank,minPct,desc});
+  }
   closeModal('lvModal');
-  toast(id?'Level updated!':(`"${name}" added at #${rank}!`),'ok');
-  renderSB();
-  renderAdmin();
-  if(selId===id) renderDet(id);
+  toast(id?'Level updated!':`"${name}" added at #${rank}!`,'ok');
 }
-function doDelLv(){
+window.saveLv = saveLv;
+
+async function doDelLv(){
   if(!confirm('Delete this level and all its records?')) return;
   const id=document.getElementById('editLvId').value;
-  let lvs=DB.levels;
-  const dr=lvs.find(l=>l.id===id)?.rank;
-  lvs=lvs.filter(l=>l.id!==id);
-  if(dr) lvs.forEach(l=>{ if(l.rank>dr) l.rank-- });
-  DB.levels=lvs;
-  DB.subs=DB.subs.filter(s=>s.levelId!==id);
+  const lv=levels.find(l=>l.id===id);
+  const delRank=lv?.rank;
+  await deleteDoc(doc(db,'levels',id));
+  // shift ranks down
+  const toShift=levels.filter(l=>l.id!==id&&l.rank>delRank);
+  for(const l of toShift) await updateDoc(doc(db,'levels',l.id),{rank:l.rank-1});
+  // delete subs for this level
+  const lvSubs=subs.filter(s=>s.levelId===id);
+  for(const s of lvSubs) await deleteDoc(doc(db,'subs',s.id));
   if(selId===id){
     selId=null;
     document.getElementById('detPanel').style.display='none';
@@ -1245,17 +1242,17 @@ function doDelLv(){
   }
   closeModal('lvModal');
   toast('Level deleted.','err');
-  renderSB();
-  renderAdmin();
 }
+window.doDelLv = doDelLv;
 
-function openHowTo(){ openModal('howToModal') }
+function openHowTo(){ openModal('howToModal'); }
+window.openHowTo = openHowTo;
 
 // ═══════════════════════════════════════════
 //  INIT
 // ═══════════════════════════════════════════
 renderHeader();
-renderSB();
+initListeners();
 </script>
 </body>
 </html>
