@@ -422,6 +422,17 @@ nav.mnav{display:flex;align-items:stretch;gap:0;flex:1}
 .ht-t{font-size:.82rem;color:var(--mut);line-height:1.65}
 .ht-t strong{color:var(--txt)}
 
+
+/* ── PROFILE MODAL EXTRAS ─── */
+.player-link{color:inherit;cursor:pointer;text-decoration:none;border-bottom:1px dotted var(--mut);transition:color .12s,border-color .12s}
+.player-link:hover{color:var(--v2);border-bottom-color:var(--v2)}
+.lb-avatar{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--v1),var(--v3));display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:800;color:#fff;text-transform:uppercase;flex-shrink:0;overflow:hidden}
+.lb-avatar img{width:100%;height:100%;object-fit:cover}
+.lb-player-cell{display:flex;align-items:center;gap:10px}
+.completed-tag{display:inline-block;padding:1px 8px;border-radius:3px;margin:2px 3px;font-size:.78rem;font-weight:600;background:rgba(108,80,255,.1);border:1px solid var(--b);color:var(--txt);cursor:pointer;transition:background .12s}
+.completed-tag:hover{background:rgba(108,80,255,.22);border-color:var(--b2)}
+.completed-tag.hardest{background:rgba(251,191,36,.1);border-color:rgba(251,191,36,.35);color:var(--gold);font-weight:700}
+
 @media(max-width:840px){
   .sb{width:240px}
   .adm-grid{grid-template-columns:1fr}
@@ -730,22 +741,46 @@ nav.mnav{display:flex;align-items:stretch;gap:0;flex:1}
 
 <!-- PROFILE MODAL -->
 <div class="mov" id="profileModal">
-  <div class="modal" style="max-width:380px">
+  <div class="modal" style="max-width:520px">
     <div class="mh">
-      <span class="mt">Your Profile</span>
+      <span class="mt" id="profileModalTitle">Profile</span>
       <button class="mx" onclick="closeModal('profileModal')">✕</button>
     </div>
-    <div class="mb" style="text-align:center">
-      <div style="display:flex;flex-direction:column;align-items:center;gap:14px;margin-bottom:20px">
-        <div class="pfp-preview" id="profilePfpPreview" style="width:80px;height:80px;font-size:1.8rem"></div>
-        <div>
-          <div style="font-weight:700;font-size:1rem" id="profileUsername"></div>
-          <div style="font-size:.75rem;color:var(--mut)" id="profileJoined"></div>
+    <div class="mb" style="padding:0">
+      <!-- Profile header band -->
+      <div style="background:linear-gradient(135deg,var(--bg3),var(--bg4));padding:24px;border-bottom:1px solid var(--b);display:flex;align-items:center;gap:18px">
+        <div class="pfp-preview" id="profilePfpPreview" style="width:72px;height:72px;font-size:1.6rem;flex-shrink:0"></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-family:'Cinzel',serif;font-size:1.2rem;font-weight:700;color:var(--txt)" id="profileUsername"></div>
+          <div style="font-size:.75rem;color:var(--mut);margin-top:2px" id="profileJoined"></div>
+          <div id="profileOwnControls" style="display:none;margin-top:10px">
+            <label class="pfp-label" for="profilePfpInput" style="cursor:pointer">📷 Change Picture</label>
+            <input type="file" id="profilePfpInput" accept="image/*" style="display:none" onchange="changeProfilePfp(this)"/>
+          </div>
+        </div>
+        <div id="profileRankBadge" style="text-align:center;flex-shrink:0"></div>
+      </div>
+      <!-- Stats row -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--b)">
+        <div style="padding:16px 20px;border-right:1px solid var(--b)">
+          <div style="font-size:.6rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--mut);margin-bottom:4px">Aura Score</div>
+          <div style="font-family:'Syne Mono',monospace;font-size:1.4rem;font-weight:700;color:var(--v2)" id="profileScore">0</div>
+        </div>
+        <div style="padding:16px 20px">
+          <div style="font-size:.6rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--mut);margin-bottom:4px">Records</div>
+          <div style="font-family:'Syne Mono',monospace;font-size:1.4rem;font-weight:700;color:var(--txt)" id="profileRecordCount">0</div>
         </div>
       </div>
-      <label class="pfp-label" for="profilePfpInput" style="display:inline-block;margin-bottom:6px">Change Profile Picture</label>
-      <input type="file" id="profilePfpInput" accept="image/*" style="display:none" onchange="changeProfilePfp(this)"/>
-      <div class="pfp-hint" style="margin-bottom:16px">JPG, PNG or GIF. Max 500KB.</div>
+      <!-- Hardest level -->
+      <div style="padding:14px 20px;border-bottom:1px solid var(--b)">
+        <div style="font-size:.6rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--mut);margin-bottom:6px">Hardest Demon</div>
+        <div id="profileHardest" style="font-weight:700;color:var(--txt)">—</div>
+      </div>
+      <!-- Completed levels list -->
+      <div style="padding:14px 20px;max-height:240px;overflow-y:auto">
+        <div style="font-size:.6rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--mut);margin-bottom:10px">Demons Completed</div>
+        <div id="profileCompletedList" style="font-size:.82rem;color:var(--txt);line-height:2"></div>
+      </div>
     </div>
     <div class="mf">
       <button class="mbtn-c" onclick="closeModal('profileModal')">Close</button>
@@ -913,7 +948,7 @@ function renderAccomplishments(){
       return `<div style="background:var(--bg2);border:1px solid ${borderCol};border-radius:8px;padding:14px 18px;display:flex;align-items:center;gap:16px;">
         <div style="font-size:1.6rem;flex-shrink:0">${lv?.rank===1?'🥇':lv?.rank===2?'🥈':lv?.rank===3?'🥉':'⭐'}</div>
         <div style="flex:1;min-width:0">
-          <div style="font-weight:700;font-size:.95rem">${esc(r.player)}${r.mobile?'<span class="mob-badge" style="margin-left:6px">Mobile</span>':''}</div>
+          <div style="font-weight:700;font-size:.95rem"><span class="player-link" onclick="viewProfile('"+r.player+"')"> ${esc(r.player)}</span>${r.mobile?'<span class="mob-badge" style="margin-left:6px">Mobile</span>':''}</div>
           <div style="font-size:.8rem;color:var(--mut);margin-top:2px">
             Completed <span style="color:var(--txt);font-weight:600">${lv?esc(lv.name):'Unknown Level'}</span>
             ${lv?`<span style="color:var(--mut)"> (Rank #${lv.rank})</span>`:''}
@@ -1072,7 +1107,7 @@ function renderDet(id){
           <thead><tr><th>#</th><th>Player</th><th>%</th><th>Video</th></tr></thead>
           <tbody>${recs.map((r,i)=>`<tr>
             <td style="color:var(--mut);font-size:.7rem">${i+1}</td>
-            <td class="r-player">${esc(r.player)}${r.mobile?'<span class="mob-badge">Mobile</span>':''}</td>
+            <td class="r-player"><span class="player-link" onclick="viewProfile('"+r.player.replace(/'/g,\'\\'\')+\"')\">${esc(r.player)}</span>${r.mobile?'<span class="mob-badge">Mobile</span>':''}</td>
             <td class="r-pct">${r.pct}%</td>
             <td>${r.vidUrl?`<a class="r-link" href="${esc(r.vidUrl)}" target="_blank">Watch ↗</a>`:'—'}</td>
           </tr>`).join('')}</tbody>
@@ -1473,7 +1508,7 @@ function renderRunsDet(id){
           <thead><tr><th>#</th><th>Player</th><th>%</th><th>Video</th></tr></thead>
           <tbody>${recs.map((r,i)=>`<tr>
             <td style="color:var(--mut);font-size:.7rem">${i+1}</td>
-            <td class="r-player">${esc(r.player)}${r.mobile?'<span class="mob-badge">Mobile</span>':''}</td>
+            <td class="r-player"><span class="player-link" onclick="viewProfile('"+r.player.replace(/'/g,\'\\'\')+\"')\">${esc(r.player)}</span>${r.mobile?'<span class="mob-badge">Mobile</span>':''}</td>
             <td class="r-pct">${r.pct}%</td>
             <td>${r.vidUrl?`<a class="r-link" href="${esc(r.vidUrl)}" target="_blank">Watch ↗</a>`:'—'}</td>
           </tr>`).join('')}</tbody>
@@ -1533,16 +1568,109 @@ window.updatePfpInitial = updatePfpInitial;
 
 function openProfileModal(){
   if(!session) return;
-  const u=users.find(x=>x.id===session.id);
-  document.getElementById('profileUsername').textContent=session.username;
-  document.getElementById('profileJoined').textContent=u?'Joined '+u.joined:'';
-  const prev=document.getElementById('profilePfpPreview');
-  const pfp=session.pfp||u?.pfp||null;
-  const init=session.username.slice(0,2).toUpperCase();
-  prev.innerHTML=pfp?`<img src="${pfp}" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`:`<span>${init}</span>`;
-  openModal('profileModal');
+  viewProfile(session.username, true);
 }
 window.openProfileModal = openProfileModal;
+
+function viewProfile(username, isOwn){
+  const u=users.find(x=>x.username.toLowerCase()===username.toLowerCase());
+  const displayName = u?.username || username;
+  const own = isOwn || (session && session.username.toLowerCase()===username.toLowerCase());
+
+  // Build stats
+  const playerSubs = subs.filter(s=>s.status==='accepted'&&s.player.toLowerCase()===username.toLowerCase());
+  const allLvMap = Object.fromEntries([...levels,...runsLevels].map(l=>[l.id,l]));
+  let score=0;
+  playerSubs.forEach(s=>{
+    const lv=levels.find(l=>l.id===s.levelId);
+    if(lv) score+=Math.round((1000/lv.rank)*(s.pct/100));
+  });
+
+  // Leaderboard rank
+  const allPlayers={};
+  subs.filter(s=>s.status==='accepted').forEach(s=>{
+    const k=s.player.toLowerCase();
+    if(!allPlayers[k]) allPlayers[k]={name:s.player,score:0};
+    const lv=levels.find(l=>l.id===s.levelId);
+    if(lv) allPlayers[k].score+=Math.round((1000/lv.rank)*(s.pct/100));
+  });
+  const sorted=Object.values(allPlayers).sort((a,b)=>b.score-a.score);
+  const rank=sorted.findIndex(p=>p.name.toLowerCase()===username.toLowerCase())+1;
+
+  // Hardest = lowest ranked level completed
+  const mainSubs=playerSubs.filter(s=>levels.find(l=>l.id===s.levelId));
+  mainSubs.sort((a,b)=>{
+    const la=levels.find(l=>l.id===a.levelId);
+    const lb=levels.find(l=>l.id===b.levelId);
+    return (la?.rank||999)-(lb?.rank||999);
+  });
+  const hardestLv = mainSubs.length ? levels.find(l=>l.id===mainSubs[0].levelId) : null;
+
+  // Populate modal
+  document.getElementById('profileModalTitle').textContent = own ? 'Your Profile' : displayName;
+  document.getElementById('profileUsername').textContent = displayName;
+  const joinedEl=document.getElementById('profileJoined');
+  joinedEl.textContent = u ? 'Joined '+u.joined : '';
+
+  const prev=document.getElementById('profilePfpPreview');
+  const pfp=u?.pfp||null;
+  const init=displayName.slice(0,2).toUpperCase();
+  prev.innerHTML=pfp
+    ?`<img src="${pfp}" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+    :`<span>${init}</span>`;
+
+  // Show/hide change picture button
+  document.getElementById('profileOwnControls').style.display = own ? 'block' : 'none';
+
+  // Rank badge
+  const rankEl=document.getElementById('profileRankBadge');
+  if(rank>0){
+    const col=rank===1?'var(--gold)':rank===2?'var(--slvr)':rank===3?'var(--brnz)':'var(--mut)';
+    rankEl.innerHTML=`<div style="font-size:.6rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--mut);margin-bottom:4px">Rank</div>
+      <div style="font-family:'Syne Mono',monospace;font-size:1.6rem;font-weight:700;color:${col}">#${rank}</div>`;
+  } else { rankEl.innerHTML=''; }
+
+  document.getElementById('profileScore').textContent=score.toLocaleString();
+  document.getElementById('profileRecordCount').textContent=playerSubs.length;
+
+  // Hardest
+  const hardEl=document.getElementById('profileHardest');
+  hardEl.innerHTML=hardestLv
+    ?`<span class="completed-tag hardest" onclick="viewProfile('${esc(displayName)}')">Rank #${hardestLv.rank} · ${esc(hardestLv.name)}</span>`
+    :'—';
+
+  // All completed levels - sorted by rank
+  const compEl=document.getElementById('profileCompletedList');
+  if(!playerSubs.length){
+    compEl.innerHTML='<span style="color:var(--mut)">No completed demons yet.</span>';
+  } else {
+    // Group: main list first then runs
+    const mainCompleted=mainSubs.map(s=>levels.find(l=>l.id===s.levelId)).filter(Boolean);
+    const runsSubs=playerSubs.filter(s=>runsLevels.find(l=>l.id===s.levelId));
+    runsSubs.sort((a,b)=>{
+      const la=runsLevels.find(l=>l.id===a.levelId);
+      const lb=runsLevels.find(l=>l.id===b.levelId);
+      return (la?.rank||999)-(lb?.rank||999);
+    });
+    const runsCompleted=runsSubs.map(s=>runsLevels.find(l=>l.id===s.levelId)).filter(Boolean);
+
+    let html='';
+    mainCompleted.forEach((lv,i)=>{
+      const isHardest = lv.id === hardestLv?.id && i===0;
+      html+=`<span class="completed-tag${isHardest?' hardest':''}" title="Rank #${lv.rank}">${esc(lv.name)}</span>`;
+    });
+    if(runsCompleted.length){
+      html+=`<div style="font-size:.6rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--teal);margin:10px 0 6px">Runs / Misc</div>`;
+      runsCompleted.forEach(lv=>{
+        html+=`<span class="completed-tag" style="border-color:rgba(34,211,238,.25);color:var(--teal)" title="Runs/Misc">${esc(lv.name)}</span>`;
+      });
+    }
+    compEl.innerHTML=html;
+  }
+
+  openModal('profileModal');
+}
+window.viewProfile = viewProfile;
 
 async function changeProfilePfp(input){
   const file=input.files[0]; if(!file||!session) return;
