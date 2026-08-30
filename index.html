@@ -7,6 +7,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Syne+Mono&family=Cinzel:wght@700;900&display=swap" rel="stylesheet"/>
+<!-- Firebase compat SDKs -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{font-size:16px}
@@ -428,13 +431,13 @@ nav.mnav{display:flex;align-items:stretch;gap:0;flex:1}
 
 <!-- HEADER -->
 <header>
-  <div class="logo" onclick="nav('accomplishments')">
+  <div class="logo" onclick="nav('list')">
     <span class="logo-text">The Aura List</span>
     <span class="logo-ver">v2.0</span>
   </div>
   <nav class="mnav" id="mnav">
-    <button class="ntab on"  id="tab-accomplishments" onclick="nav('accomplishments')">Accomplishments</button>
-    <button class="ntab"     id="tab-list"             onclick="nav('list')">Main List</button>
+    <button class="ntab on"  id="tab-list"             onclick="nav('list')">Main List</button>
+    <button class="ntab"     id="tab-accomplishments"  onclick="nav('accomplishments')">Accomplishments</button>
     <button class="ntab"     id="tab-leaderboard"      onclick="nav('leaderboard')">Leaderboard</button>
     <button class="ntab"     id="tab-roulette"         onclick="nav('roulette')">Roulette</button>
     <button class="ntab"     id="tab-submit"           onclick="nav('submit')">Submit Record</button>
@@ -445,7 +448,7 @@ nav.mnav{display:flex;align-items:stretch;gap:0;flex:1}
 </header>
 
 <!-- ACCOMPLISHMENTS PAGE -->
-<div class="pg on" id="pg-accomplishments">
+<div class="pg" id="pg-accomplishments">
   <div class="lbpg">
     <div class="pg-h">Accomplishments</div>
     <div class="pg-s">Notable achievements and milestones on The Aura List.</div>
@@ -460,7 +463,7 @@ nav.mnav{display:flex;align-items:stretch;gap:0;flex:1}
 </div>
 
 <!-- LIST PAGE -->
-<div class="pg list-pg" id="pg-list">
+<div class="pg list-pg on" id="pg-list">
   <aside class="sb">
     <div class="sb-top">
       <div class="sb-lbl">Ranked Levels</div>
@@ -680,16 +683,10 @@ nav.mnav{display:flex;align-items:stretch;gap:0;flex:1}
 
 <div id="toasts"></div>
 
-<script type="module">
+<script>
 // ═══════════════════════════════════════════
-//  FIREBASE SETUP
+//  FIREBASE SETUP (loaded via compat CDN above)
 // ═══════════════════════════════════════════
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import {
-  getFirestore, collection, doc,
-  getDocs, getDoc, addDoc, setDoc, updateDoc, deleteDoc,
-  query, orderBy, onSnapshot, serverTimestamp
-} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyB0iH1e7oKt8mbompTLnDZMWEG1mzOyIVc",
@@ -700,8 +697,8 @@ const firebaseConfig = {
   appId: "1:873722782833:web:fa4d8be8358f50314b67d0"
 };
 
-const fbApp = initializeApp(firebaseConfig);
-const db = getFirestore(fbApp);
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
 
 // ═══════════════════════════════════════════
 //  CONSTANTS
@@ -753,7 +750,7 @@ function showLoading(el){ el.innerHTML='<div style="padding:24px;text-align:cent
 // ═══════════════════════════════════════════
 function initListeners(){
   // Levels — real-time
-  onSnapshot(collection(db,'levels'), snap=>{
+  db.collection('levels').onSnapshot(snap=>{
     levels = snap.docs.map(d=>({id:d.id,...d.data()}));
     levels.sort((a,b)=>a.rank-b.rank);
     renderSB();
@@ -763,7 +760,7 @@ function initListeners(){
     if(document.getElementById('pg-submit').classList.contains('on')) renderSubmitArea();
   });
   // Submissions — real-time
-  onSnapshot(collection(db,'subs'), snap=>{
+  db.collection('subs').onSnapshot(snap=>{
     subs = snap.docs.map(d=>({id:d.id,...d.data()}));
     if(selId) renderDet(selId);
     if(document.getElementById('pg-leaderboard').classList.contains('on'))     renderLB();
@@ -771,7 +768,7 @@ function initListeners(){
     if(document.getElementById('pg-accomplishments').classList.contains('on')) renderAccomplishments();
   });
   // Users — real-time
-  onSnapshot(collection(db,'users'), snap=>{
+  db.collection('users').onSnapshot(snap=>{
     users = snap.docs.map(d=>({id:d.id,...d.data()}));
     if(document.getElementById('pg-admin').classList.contains('on')) renderAdmin();
   });
@@ -878,7 +875,7 @@ async function doRegister(){
   if(users.some(u=>u.username.toLowerCase()===username.toLowerCase()))
     return toast('Username already taken.','err');
   const id = uid();
-  await setDoc(doc(db,'users',id),{username,pw,banned:false,joined:new Date().toLocaleDateString()});
+  await db.collection('users').doc(id).set({username,pw,banned:false,joined:new Date().toLocaleDateString()});
   saveSession({id,username});
   closeModal('authModal');
   renderHeader();
@@ -1136,7 +1133,7 @@ async function doSubmit(e){
   if(lv&&pct<(lv.minPct||100)) return toast(`Min. ${lv.minPct||100}% required.`,'err');
   if(subs.some(s=>s.levelId===lvId&&s.player.toLowerCase()===player.toLowerCase()&&s.status!=='rejected'&&s.pct>=pct))
     return toast('Similar submission already pending or accepted.','warn');
-  await addDoc(collection(db,'subs'),{levelId:lvId,player,pct,vidUrl,mobile,notes,status:'pending',date:new Date().toLocaleDateString(),ts:Date.now()});
+  await db.collection('subs').add({levelId:lvId,player,pct,vidUrl,mobile,notes,status:'pending',date:new Date().toLocaleDateString(),ts:Date.now()});
   document.getElementById('subFormCard').style.display='none';
   document.getElementById('subOk').classList.add('show');
 }
@@ -1203,7 +1200,7 @@ function renderAdmin(){
 }
 
 async function reviewSub(id,status){
-  await updateDoc(doc(db,'subs',id),{status});
+  await db.collection('subs').doc(id).update({status});
   toast(status==='accepted'?'Record accepted! ✓':'Record rejected.', status==='accepted'?'ok':'err');
 }
 window.reviewSub = reviewSub;
@@ -1211,7 +1208,7 @@ window.reviewSub = reviewSub;
 async function toggleBan(uid){
   const u=users.find(x=>x.id===uid);
   if(!u) return;
-  await updateDoc(doc(db,'users',uid),{banned:!u.banned});
+  await db.collection('users').doc(uid).update({banned:!u.banned});
   toast(!u.banned?`${u.username} banned.`:`${u.username} unbanned.`, !u.banned?'err':'ok');
   if(session&&session.id===uid&&!u.banned){ clearSession(); renderHeader(); }
 }
@@ -1263,13 +1260,13 @@ async function saveLv(){
   // Shift ranks of existing levels
   const batch = levels.filter(l=>l.id!==id&&l.rank>=rank);
   for(const lv of batch){
-    await updateDoc(doc(db,'levels',lv.id),{rank:lv.rank+1});
+    await db.collection('levels').doc(lv.id).update({rank:lv.rank+1});
   }
 
   if(id){
-    await updateDoc(doc(db,'levels',id),{name,creator,verifier,video,rank,minPct,desc});
+    await db.collection('levels').doc(id).update({name,creator,verifier,video,rank,minPct,desc});
   } else {
-    await addDoc(collection(db,'levels'),{name,creator,verifier,video,rank,minPct,desc});
+    await db.collection('levels').add({name,creator,verifier,video,rank,minPct,desc});
   }
   closeModal('lvModal');
   toast(id?'Level updated!':`"${name}" added at #${rank}!`,'ok');
@@ -1281,13 +1278,13 @@ async function doDelLv(){
   const id=document.getElementById('editLvId').value;
   const lv=levels.find(l=>l.id===id);
   const delRank=lv?.rank;
-  await deleteDoc(doc(db,'levels',id));
+  await db.collection('levels').doc(id).delete();
   // shift ranks down
   const toShift=levels.filter(l=>l.id!==id&&l.rank>delRank);
-  for(const l of toShift) await updateDoc(doc(db,'levels',l.id),{rank:l.rank-1});
+  for(const l of toShift) await db.collection('levels').doc(l.id).update({rank:l.rank-1});
   // delete subs for this level
   const lvSubs=subs.filter(s=>s.levelId===id);
-  for(const s of lvSubs) await deleteDoc(doc(db,'subs',s.id));
+  for(const s of lvSubs) await db.collection('subs').doc(s.id).delete();
   if(selId===id){
     selId=null;
     document.getElementById('detPanel').style.display='none';
@@ -1301,11 +1298,20 @@ window.doDelLv = doDelLv;
 function openHowTo(){ openModal('howToModal'); }
 window.openHowTo = openHowTo;
 
+// Expose utility functions needed by HTML onclick attributes
+window.openModal       = openModal;
+window.closeModal      = closeModal;
+window.openAddLv       = openAddLv;
+window.openEditLv      = openEditLv;
+window.renderSubmitArea= renderSubmitArea;
+
 // ═══════════════════════════════════════════
 //  INIT
 // ═══════════════════════════════════════════
 renderHeader();
 initListeners();
+
 </script>
+
 </body>
 </html>
