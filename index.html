@@ -138,7 +138,15 @@ nav.mnav{display:flex;align-items:stretch;gap:0;flex:1}
   background:linear-gradient(135deg,var(--v1),var(--v3));
   display:flex;align-items:center;justify-content:center;
   font-size:.7rem;font-weight:800;color:#fff;text-transform:uppercase;flex-shrink:0;
+  overflow:hidden;
 }
+.avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.pfp-upload-wrap{display:flex;align-items:center;gap:14px;margin-bottom:18px}
+.pfp-preview{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--v1),var(--v3));display:flex;align-items:center;justify-content:center;font-size:1.4rem;font-weight:800;color:#fff;overflow:hidden;flex-shrink:0;border:2px solid var(--b2)}
+.pfp-preview img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.pfp-label{display:inline-block;padding:7px 14px;border-radius:5px;border:1px solid var(--b2);color:var(--mut);font-size:.72rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;cursor:pointer;transition:all .15s}
+.pfp-label:hover{border-color:var(--v2);color:var(--v2)}
+.pfp-hint{font-size:.72rem;color:var(--mut);margin-top:4px}
 .user-chip-name{font-size:.75rem;font-weight:700;color:var(--txt);max-width:90px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .admin-pill{
   display:inline-flex;align-items:center;gap:4px;
@@ -151,6 +159,7 @@ nav.mnav{display:flex;align-items:stretch;gap:0;flex:1}
 .pg{display:none;flex:1;animation:fadeUp .22s ease}
 .pg.on{display:flex;flex-direction:column}
 .list-pg.on{flex-direction:row;min-height:calc(100vh - var(--hh))}
+.runs-pg.on{flex-direction:row;min-height:calc(100vh - var(--hh))}
 
 /* ── SIDEBAR ─── */
 .sb{
@@ -437,6 +446,7 @@ nav.mnav{display:flex;align-items:stretch;gap:0;flex:1}
   </div>
   <nav class="mnav" id="mnav">
     <button class="ntab on"  id="tab-list"             onclick="nav('list')">Main List</button>
+    <button class="ntab"     id="tab-runs"             onclick="nav('runs')">Runs / Misc</button>
     <button class="ntab"     id="tab-accomplishments"  onclick="nav('accomplishments')">Accomplishments</button>
     <button class="ntab"     id="tab-leaderboard"      onclick="nav('leaderboard')">Leaderboard</button>
     <button class="ntab"     id="tab-roulette"         onclick="nav('roulette')">Roulette</button>
@@ -446,6 +456,28 @@ nav.mnav{display:flex;align-items:stretch;gap:0;flex:1}
     <!-- populated by renderHeader() -->
   </div>
 </header>
+
+<!-- RUNS/MISC PAGE -->
+<div class="pg runs-pg" id="pg-runs">
+  <aside class="sb">
+    <div class="sb-top">
+      <div class="sb-lbl">Runs / Misc Levels</div>
+      <div class="srch">
+        <span class="srch-ico">🔍</span>
+        <input class="srch-in" id="srchInRuns" type="text" placeholder="Search…" oninput="renderRunsSB()"/>
+      </div>
+    </div>
+    <div class="sb-list" id="runsSbList"></div>
+  </aside>
+  <main class="lmain" id="runsmain">
+    <div class="lwelcome" id="runsWelcome">
+      <div class="wglyph">✦</div>
+      <div class="wtitle">Runs / Misc</div>
+      <div class="wsub">Click a level on the left to see its video, info, and accepted records.</div>
+    </div>
+    <div class="det" id="runsDetPanel" style="display:none"></div>
+  </main>
+</div>
 
 <!-- ACCOMPLISHMENTS PAGE -->
 <div class="pg" id="pg-accomplishments">
@@ -547,7 +579,10 @@ nav.mnav{display:flex;align-items:stretch;gap:0;flex:1}
       <div class="acard">
         <div class="acard-h">
           <span class="acard-t">Level Management</span>
-          <button class="add-lv-btn" onclick="openAddLv()">+ Add Level</button>
+          <div style="display:flex;gap:6px">
+            <button class="add-lv-btn" onclick="openAddLv()">+ Main List</button>
+            <button class="add-lv-btn" onclick="openAddRunsLv()" style="background:linear-gradient(135deg,#1d6fa4,#2196d3)">+ Runs/Misc</button>
+          </div>
         </div>
         <div class="acard-b" id="admLvList"></div>
       </div>
@@ -585,7 +620,18 @@ nav.mnav{display:flex;align-items:stretch;gap:0;flex:1}
       </div>
       <!-- Register form -->
       <div id="regForm" style="display:none">
-        <div class="frow"><label class="flbl">Username</label><input class="fin" type="text" id="regUser" placeholder="Pick a username" maxlength="32" onkeydown="if(event.key==='Enter')doRegister()"/></div>
+        <div class="frow">
+          <label class="flbl">Profile Picture (optional)</label>
+          <div class="pfp-upload-wrap">
+            <div class="pfp-preview" id="regPfpPreview"><span id="regPfpInitial">?</span></div>
+            <div>
+              <label class="pfp-label" for="regPfpInput">Choose Image</label>
+              <input type="file" id="regPfpInput" accept="image/*" style="display:none" onchange="previewPfp(this)"/>
+              <div class="pfp-hint">JPG, PNG or GIF. Max 500KB.</div>
+            </div>
+          </div>
+        </div>
+        <div class="frow"><label class="flbl">Username</label><input class="fin" type="text" id="regUser" placeholder="Pick a username" maxlength="32" oninput="updatePfpInitial()" onkeydown="if(event.key==='Enter')doRegister()"/></div>
         <div class="frow"><label class="flbl">Password</label><input class="fin" type="password" id="regPw" placeholder="Choose a password" onkeydown="if(event.key==='Enter')doRegister()"/></div>
         <div class="frow"><label class="flbl">Confirm Password</label><input class="fin" type="password" id="regPw2" placeholder="Repeat password" onkeydown="if(event.key==='Enter')doRegister()"/></div>
         <button class="sbtn" onclick="doRegister()">Create Account</button>
@@ -678,6 +724,32 @@ nav.mnav{display:flex;align-items:stretch;gap:0;flex:1}
       </div>
     </div>
     <div class="mf"><button class="mbtn-s" onclick="closeModal('howToModal')">Got it ✓</button></div>
+  </div>
+</div>
+
+
+<!-- PROFILE MODAL -->
+<div class="mov" id="profileModal">
+  <div class="modal" style="max-width:380px">
+    <div class="mh">
+      <span class="mt">Your Profile</span>
+      <button class="mx" onclick="closeModal('profileModal')">✕</button>
+    </div>
+    <div class="mb" style="text-align:center">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:14px;margin-bottom:20px">
+        <div class="pfp-preview" id="profilePfpPreview" style="width:80px;height:80px;font-size:1.8rem"></div>
+        <div>
+          <div style="font-weight:700;font-size:1rem" id="profileUsername"></div>
+          <div style="font-size:.75rem;color:var(--mut)" id="profileJoined"></div>
+        </div>
+      </div>
+      <label class="pfp-label" for="profilePfpInput" style="display:inline-block;margin-bottom:6px">Change Profile Picture</label>
+      <input type="file" id="profilePfpInput" accept="image/*" style="display:none" onchange="changeProfilePfp(this)"/>
+      <div class="pfp-hint" style="margin-bottom:16px">JPG, PNG or GIF. Max 500KB.</div>
+    </div>
+    <div class="mf">
+      <button class="mbtn-c" onclick="closeModal('profileModal')">Close</button>
+    </div>
   </div>
 </div>
 
@@ -785,9 +857,12 @@ function renderHeader(){
       <button class="hbtn-outline" onclick="logoutAdmin()">Logout</button>`;
   } else if(session){
     const init=session.username.slice(0,2).toUpperCase();
+    const avatarHTML = session.pfp
+      ? `<div class="avatar"><img src="${session.pfp}" alt=""/></div>`
+      : `<div class="avatar">${esc(init)}</div>`;
     hend.innerHTML=`
-      <div class="user-chip" title="Signed in as ${esc(session.username)}">
-        <div class="avatar">${esc(init)}</div>
+      <div class="user-chip" title="Signed in as ${esc(session.username)}" onclick="openProfileModal()" style="cursor:pointer">
+        ${avatarHTML}
         <span class="user-chip-name">${esc(session.username)}</span>
       </div>
       <button class="hbtn-outline" onclick="logout()">Sign Out</button>
@@ -814,6 +889,7 @@ function nav(pg){
   if(pg==='submit')          renderSubmitArea();
   if(pg==='admin')           renderAdmin();
   if(pg==='accomplishments') renderAccomplishments();
+  if(pg==='runs'){           renderRunsSB(); if(runsSelId) renderRunsDet(runsSelId); }
 }
 window.nav = nav;
 
@@ -875,8 +951,10 @@ async function doRegister(){
   if(users.some(u=>u.username.toLowerCase()===username.toLowerCase()))
     return toast('Username already taken.','err');
   const id = uid();
-  await db.collection('users').doc(id).set({username,pw,banned:false,joined:new Date().toLocaleDateString()});
-  saveSession({id,username});
+  const pfp = window._pendingPfp || null;
+  await db.collection('users').doc(id).set({username,pw,banned:false,joined:new Date().toLocaleDateString(),pfp});
+  window._pendingPfp = null;
+  saveSession({id,username,pfp});
   closeModal('authModal');
   renderHeader();
   renderSubmitArea();
@@ -891,7 +969,7 @@ async function doLogin(){
   const u=users.find(x=>x.username.toLowerCase()===username.toLowerCase()&&x.pw===pw);
   if(!u) return toast('Incorrect username or password.','err');
   if(u.banned) return toast('Your account has been banned.','err');
-  saveSession({id:u.id,username:u.username});
+  saveSession({id:u.id,username:u.username,pfp:u.pfp||null});
   closeModal('authModal');
   renderHeader();
   renderSubmitArea();
@@ -1076,13 +1154,22 @@ function renderSubmitArea(){
     return;
   }
   const userName=isAdmin?'Admin':session.username;
+  const pfp=session?.pfp||null;
+  const avatarHTML=pfp?`<div class="avatar" style="width:22px;height:22px"><img src="${pfp}" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/></div>`:`<div class="avatar" style="width:22px;height:22px;font-size:.62rem">${esc(userName.slice(0,2).toUpperCase())}</div>`;
   area.innerHTML=`
     <div class="logged-as">
-      <div class="avatar" style="width:22px;height:22px;font-size:.62rem">${esc(userName.slice(0,2).toUpperCase())}</div>
+      ${avatarHTML}
       Submitting as <b>${esc(userName)}</b>
     </div>
     <div class="fcard" id="subFormCard">
       <form onsubmit="doSubmit(event)">
+        <div class="frow">
+          <label class="flbl">List *</label>
+          <select class="fsel" id="sfListType" onchange="updateSubmitLevels()" required>
+            <option value="main">Main List</option>
+            <option value="runs">Runs / Misc</option>
+          </select>
+        </div>
         <div class="frow">
           <label class="flbl">Level *</label>
           <select class="fsel" id="sfLevel" required>
@@ -1129,15 +1216,25 @@ async function doSubmit(e){
   if(!lvId) return toast('Select a level.','err');
   if(!pct||pct<1||pct>100) return toast('Invalid percentage.','err');
   if(!vidUrl) return toast('Provide a video link.','err');
-  const lv=levels.find(l=>l.id===lvId);
+  const listType=document.getElementById('sfListType')?.value||'main';
+  const lvList = listType==='runs' ? runsLevels : levels;
+  const lv=lvList.find(l=>l.id===lvId);
   if(lv&&pct<(lv.minPct||100)) return toast(`Min. ${lv.minPct||100}% required.`,'err');
   if(subs.some(s=>s.levelId===lvId&&s.player.toLowerCase()===player.toLowerCase()&&s.status!=='rejected'&&s.pct>=pct))
     return toast('Similar submission already pending or accepted.','warn');
-  await db.collection('subs').add({levelId:lvId,player,pct,vidUrl,mobile,notes,status:'pending',date:new Date().toLocaleDateString(),ts:Date.now()});
+  await db.collection('subs').add({levelId:lvId,player,pct,vidUrl,mobile,notes,status:'pending',date:new Date().toLocaleDateString(),ts:Date.now(),listType});
   document.getElementById('subFormCard').style.display='none';
   document.getElementById('subOk').classList.add('show');
 }
 window.doSubmit = doSubmit;
+
+function updateSubmitLevels(){
+  const t=document.getElementById('sfListType').value;
+  const sel=document.getElementById('sfLevel');
+  const lvList = t==='runs' ? runsLevels : levels;
+  sel.innerHTML='<option value="">Select a level…</option>'+lvList.map(l=>`<option value="${l.id}">#${l.rank} — ${esc(l.name)}</option>`).join('');
+}
+window.updateSubmitLevels = updateSubmitLevels;
 
 // ═══════════════════════════════════════════
 //  ADMIN PANEL
@@ -1166,12 +1263,19 @@ function renderAdmin(){
       </div>`;
     }).join('');
 
+  const allLvs = [
+    ...levels.map(l=>({...l,_col:'main'})),
+    ...runsLevels.map(l=>({...l,_col:'runs'}))
+  ].sort((a,b)=> a._col===b._col ? a.rank-b.rank : a._col==='main'?-1:1);
   document.getElementById('admLvList').innerHTML=
-    !levels.length?'<div class="adm-empty">No levels yet.</div>':
-    levels.map(lv=>`<div class="alv-row">
-      <div class="alv-rk">${lv.rank}</div>
-      <div class="alv-inf"><div class="alv-nm">${esc(lv.name)}</div><div class="alv-cr">by ${esc(lv.creator)}</div></div>
-      <div class="alv-acts"><button class="btn-sm-edit" onclick="openEditLv('${lv.id}')">Edit</button></div>
+    !allLvs.length?'<div class="adm-empty">No levels yet.</div>':
+    allLvs.map(lv=>`<div class="alv-row">
+      <div class="alv-rk" style="color:${lv._col==='runs'?'var(--teal)':'var(--mut)'}">${lv.rank}</div>
+      <div class="alv-inf">
+        <div class="alv-nm">${esc(lv.name)} <span style="font-size:.6rem;color:${lv._col==='runs'?'var(--teal)':'var(--v2)'};font-weight:700;text-transform:uppercase;letter-spacing:.08em">${lv._col==='runs'?'Runs/Misc':'Main'}</span></div>
+        <div class="alv-cr">by ${esc(lv.creator)}</div>
+      </div>
+      <div class="alv-acts"><button class="btn-sm-edit" onclick="${lv._col==='runs'?`openEditRunsLv('${lv.id}')`:`openEditLv('${lv.id}')`}">Edit</button></div>
     </div>`).join('');
 
   document.getElementById('admUserList').innerHTML=
@@ -1245,7 +1349,11 @@ function openEditLv(id){
 window.openEditLv = openEditLv;
 
 async function saveLv(){
-  const id=document.getElementById('editLvId').value;
+  const rawId=document.getElementById('editLvId').value;
+  const isRuns = rawId.startsWith('__runs__');
+  const id = isRuns ? rawId.replace('__runs__','') : rawId;
+  const col = isRuns ? 'runsLevels' : 'levels';
+  const lvList = isRuns ? runsLevels : levels;
   const name=document.getElementById('mlName').value.trim();
   const creator=document.getElementById('mlCreator').value.trim();
   const verifier=document.getElementById('mlVerifier').value.trim();
@@ -1257,16 +1365,15 @@ async function saveLv(){
   if(!creator) return toast('Creator required.','err');
   if(!rank||rank<1) return toast('Valid rank required.','err');
 
-  // Shift ranks of existing levels
-  const batch = levels.filter(l=>l.id!==id&&l.rank>=rank);
-  for(const lv of batch){
-    await db.collection('levels').doc(lv.id).update({rank:lv.rank+1});
+  // Shift ranks
+  const batch2 = lvList.filter(l=>l.id!==id&&l.rank>=rank);
+  for(const lv of batch2){
+    await db.collection(col).doc(lv.id).update({rank:lv.rank+1});
   }
-
   if(id){
-    await db.collection('levels').doc(id).update({name,creator,verifier,video,rank,minPct,desc});
+    await db.collection(col).doc(id).update({name,creator,verifier,video,rank,minPct,desc});
   } else {
-    await db.collection('levels').add({name,creator,verifier,video,rank,minPct,desc});
+    await db.collection(col).add({name,creator,verifier,video,rank,minPct,desc});
   }
   closeModal('lvModal');
   toast(id?'Level updated!':`"${name}" added at #${rank}!`,'ok');
@@ -1275,14 +1382,16 @@ window.saveLv = saveLv;
 
 async function doDelLv(){
   if(!confirm('Delete this level and all its records?')) return;
-  const id=document.getElementById('editLvId').value;
-  const lv=levels.find(l=>l.id===id);
+  const rawId=document.getElementById('editLvId').value;
+  const isRuns = rawId.startsWith('__runs__');
+  const id = isRuns ? rawId.replace('__runs__','') : rawId;
+  const col = isRuns ? 'runsLevels' : 'levels';
+  const lvList = isRuns ? runsLevels : levels;
+  const lv=lvList.find(l=>l.id===id);
   const delRank=lv?.rank;
-  await db.collection('levels').doc(id).delete();
-  // shift ranks down
-  const toShift=levels.filter(l=>l.id!==id&&l.rank>delRank);
-  for(const l of toShift) await db.collection('levels').doc(l.id).update({rank:l.rank-1});
-  // delete subs for this level
+  await db.collection(col).doc(id).delete();
+  const toShift=lvList.filter(l=>l.id!==id&&l.rank>delRank);
+  for(const l of toShift) await db.collection(col).doc(l.id).update({rank:l.rank-1});
   const lvSubs=subs.filter(s=>s.levelId===id);
   for(const s of lvSubs) await db.collection('subs').doc(s.id).delete();
   if(selId===id){
@@ -1298,6 +1407,161 @@ window.doDelLv = doDelLv;
 function openHowTo(){ openModal('howToModal'); }
 window.openHowTo = openHowTo;
 
+
+// ═══════════════════════════════════════════
+//  RUNS/MISC — mirrors main list but separate collection
+// ═══════════════════════════════════════════
+let runsLevels = [];
+let runsSelId  = null;
+
+function initRunsListener(){
+  db.collection('runsLevels').onSnapshot(snap=>{
+    runsLevels = snap.docs.map(d=>({id:d.id,...d.data()}));
+    runsLevels.sort((a,b)=>a.rank-b.rank);
+    if(document.getElementById('pg-runs').classList.contains('on')) renderRunsSB();
+    if(runsSelId) renderRunsDet(runsSelId);
+  });
+}
+
+function renderRunsSB(){
+  const q=(document.getElementById('srchInRuns').value||'').trim().toLowerCase();
+  const filtered=[...runsLevels].filter(l=>!q||l.name.toLowerCase().includes(q)||l.creator.toLowerCase().includes(q));
+  const ul=document.getElementById('runsSbList');
+  if(!filtered.length){
+    ul.innerHTML=`<div class="sb-empty">${q?'No levels match your search.':'No Runs/Misc levels yet.'}</div>`;
+    return;
+  }
+  ul.innerHTML=filtered.map(lv=>{
+    const rc=lv.rank===1?'rk1':lv.rank===2?'rk2':lv.rank===3?'rk3':'rkn';
+    return `<div class="li${runsSelId===lv.id?' sel':''}" onclick="selectRunsLv('${lv.id}')">
+      <div class="li-rank ${rc}">${lv.rank}</div>
+      <div class="li-info"><div class="li-name">${esc(lv.name)}</div><div class="li-by">${esc(lv.creator)}</div></div>
+    </div>`;
+  }).join('');
+}
+window.renderRunsSB = renderRunsSB;
+
+function selectRunsLv(id){ runsSelId=id; renderRunsSB(); renderRunsDet(id); }
+window.selectRunsLv = selectRunsLv;
+
+function renderRunsDet(id){
+  const lv=runsLevels.find(l=>l.id===id); if(!lv) return;
+  const recs=subs.filter(s=>s.levelId===id&&s.status==='accepted'&&s.listType==='runs').sort((a,b)=>b.pct-a.pct);
+  const thumb=ytThumb(lv.video);
+  const watchUrl=ytWatch(lv.video);
+  document.getElementById('runsWelcome').style.display='none';
+  const det=document.getElementById('runsDetPanel');
+  det.style.display='block';det.style.flex='none';
+  const adminBar=isAdmin?`<div class="d-adminrow"><button class="btn-sm-edit" onclick="openEditRunsLv('${lv.id}')">✏ Edit Level</button></div>`:'';
+  det.innerHTML=`
+    <div class="vid-box" id="runsVidBox_${lv.id}">
+      ${lv.video
+        ?`<a href="${esc(watchUrl)}" target="_blank" style="position:absolute;inset:0;display:block;background:#000;">
+            <img src="${thumb||''}" style="width:100%;height:100%;object-fit:cover;opacity:.9;transition:opacity .2s;" onmouseover="this.style.opacity='.7'" onmouseout="this.style.opacity='.9'" onerror="this.style.display='none'"/>
+          </a>`
+        :`<div class="vid-ph"><div class="vid-ph-ico">▶</div><div class="vid-ph-txt">No video added yet</div></div>`}
+    </div>
+    <div class="d-rnklbl">RUNS/MISC · THE AURA LIST</div>
+    <div class="d-name">${esc(lv.name)}</div>
+    <div class="d-meta">by <b>${esc(lv.creator)}</b> &nbsp;·&nbsp; verified by <b>${esc(lv.verifier||'—')}</b> &nbsp;·&nbsp; min. <b>${lv.minPct||100}%</b> to qualify</div>
+    ${lv.desc?`<div class="d-desc">${esc(lv.desc)}</div>`:''}
+    ${adminBar}
+    <div class="sec-hd"><span>Accepted Records (${recs.length})</span></div>
+    ${recs.length===0
+      ?`<div class="no-rec">No records yet. <a href="#" style="color:var(--v2)" onclick="nav('submit');return false">Be the first to submit!</a></div>`
+      :`<table class="rtable">
+          <thead><tr><th>#</th><th>Player</th><th>%</th><th>Video</th></tr></thead>
+          <tbody>${recs.map((r,i)=>`<tr>
+            <td style="color:var(--mut);font-size:.7rem">${i+1}</td>
+            <td class="r-player">${esc(r.player)}${r.mobile?'<span class="mob-badge">Mobile</span>':''}</td>
+            <td class="r-pct">${r.pct}%</td>
+            <td>${r.vidUrl?`<a class="r-link" href="${esc(r.vidUrl)}" target="_blank">Watch ↗</a>`:'—'}</td>
+          </tr>`).join('')}</tbody>
+        </table>`}`;
+}
+window.renderRunsDet = renderRunsDet;
+
+// Admin: add/edit runs levels
+function openAddRunsLv(){
+  document.getElementById('lvModalTitle').textContent='Add Runs/Misc Level';
+  document.getElementById('editLvId').value='__runs__';
+  ['mlName','mlCreator','mlVerifier','mlVideo','mlDesc'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('mlRank').value=runsLevels.length+1;
+  document.getElementById('mlMinPct').value='100';
+  document.getElementById('delLvBtn').style.display='none';
+  openModal('lvModal');
+}
+window.openAddRunsLv = openAddRunsLv;
+
+function openEditRunsLv(id){
+  const lv=runsLevels.find(l=>l.id===id); if(!lv) return;
+  document.getElementById('lvModalTitle').textContent='Edit Runs/Misc Level';
+  document.getElementById('editLvId').value='__runs__'+id;
+  document.getElementById('mlName').value=lv.name;
+  document.getElementById('mlCreator').value=lv.creator;
+  document.getElementById('mlVerifier').value=lv.verifier||'';
+  document.getElementById('mlVideo').value=lv.video||'';
+  document.getElementById('mlRank').value=lv.rank;
+  document.getElementById('mlMinPct').value=lv.minPct||100;
+  document.getElementById('mlDesc').value=lv.desc||'';
+  document.getElementById('delLvBtn').style.display='inline-block';
+  openModal('lvModal');
+}
+window.openEditRunsLv = openEditRunsLv;
+
+// ── PROFILE PICTURE ──────────────────────────────
+function previewPfp(input){
+  const file=input.files[0]; if(!file) return;
+  if(file.size>500*1024) return toast('Image must be under 500KB.','err');
+  const reader=new FileReader();
+  reader.onload=e=>{
+    window._pendingPfp=e.target.result;
+    const prev=document.getElementById('regPfpPreview');
+    prev.innerHTML=`<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`;
+  };
+  reader.readAsDataURL(file);
+}
+window.previewPfp = previewPfp;
+
+function updatePfpInitial(){
+  const val=document.getElementById('regUser').value;
+  const init=val.slice(0,2).toUpperCase()||'?';
+  const span=document.getElementById('regPfpInitial');
+  if(span&&!window._pendingPfp) span.textContent=init;
+}
+window.updatePfpInitial = updatePfpInitial;
+
+function openProfileModal(){
+  if(!session) return;
+  const u=users.find(x=>x.id===session.id);
+  document.getElementById('profileUsername').textContent=session.username;
+  document.getElementById('profileJoined').textContent=u?'Joined '+u.joined:'';
+  const prev=document.getElementById('profilePfpPreview');
+  const pfp=session.pfp||u?.pfp||null;
+  const init=session.username.slice(0,2).toUpperCase();
+  prev.innerHTML=pfp?`<img src="${pfp}" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`:`<span>${init}</span>`;
+  openModal('profileModal');
+}
+window.openProfileModal = openProfileModal;
+
+async function changeProfilePfp(input){
+  const file=input.files[0]; if(!file||!session) return;
+  if(file.size>500*1024) return toast('Image must be under 500KB.','err');
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    const pfp=e.target.result;
+    await db.collection('users').doc(session.id).update({pfp});
+    session.pfp=pfp;
+    saveSession(session);
+    const prev=document.getElementById('profilePfpPreview');
+    prev.innerHTML=`<img src="${pfp}" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`;
+    renderHeader();
+    toast('Profile picture updated!','ok');
+  };
+  reader.readAsDataURL(file);
+}
+window.changeProfilePfp = changeProfilePfp;
+
 // Expose utility functions needed by HTML onclick attributes
 window.openModal       = openModal;
 window.closeModal      = closeModal;
@@ -1310,6 +1574,7 @@ window.renderSubmitArea= renderSubmitArea;
 // ═══════════════════════════════════════════
 renderHeader();
 initListeners();
+initRunsListener();
 
 </script>
 
