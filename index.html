@@ -428,23 +428,39 @@ nav.mnav{display:flex;align-items:stretch;gap:0;flex:1}
 
 <!-- HEADER -->
 <header>
-  <div class="logo" onclick="nav('list')">
+  <div class="logo" onclick="nav('accomplishments')">
     <span class="logo-text">The Aura List</span>
     <span class="logo-ver">v2.0</span>
   </div>
   <nav class="mnav" id="mnav">
-    <button class="ntab on"  id="tab-list"        onclick="nav('list')">List</button>
-    <button class="ntab"     id="tab-leaderboard" onclick="nav('leaderboard')">Leaderboard</button>
-    <button class="ntab"     id="tab-roulette"    onclick="nav('roulette')">Roulette</button>
-    <button class="ntab"     id="tab-submit"      onclick="nav('submit')">Submit Record</button>
+    <button class="ntab on"  id="tab-accomplishments" onclick="nav('accomplishments')">Accomplishments</button>
+    <button class="ntab"     id="tab-list"             onclick="nav('list')">Main List</button>
+    <button class="ntab"     id="tab-leaderboard"      onclick="nav('leaderboard')">Leaderboard</button>
+    <button class="ntab"     id="tab-roulette"         onclick="nav('roulette')">Roulette</button>
+    <button class="ntab"     id="tab-submit"           onclick="nav('submit')">Submit Record</button>
   </nav>
   <div class="hend" id="hend">
     <!-- populated by renderHeader() -->
   </div>
 </header>
 
+<!-- ACCOMPLISHMENTS PAGE -->
+<div class="pg on" id="pg-accomplishments">
+  <div class="lbpg">
+    <div class="pg-h">Accomplishments</div>
+    <div class="pg-s">Notable achievements and milestones on The Aura List.</div>
+    <div id="accContent">
+      <div style="text-align:center;padding:60px 20px;color:var(--mut)">
+        <div style="font-size:3rem;opacity:.12;margin-bottom:16px">🏆</div>
+        <div style="font-family:'Cinzel',serif;font-size:1.1rem;font-weight:700;margin-bottom:8px">No accomplishments yet</div>
+        <div style="font-size:.85rem;line-height:1.7">Accomplishments will appear here as players complete levels and reach milestones.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- LIST PAGE -->
-<div class="pg list-pg on" id="pg-list">
+<div class="pg list-pg" id="pg-list">
   <aside class="sb">
     <div class="sb-top">
       <div class="sb-lbl">Ranked Levels</div>
@@ -750,8 +766,9 @@ function initListeners(){
   onSnapshot(collection(db,'subs'), snap=>{
     subs = snap.docs.map(d=>({id:d.id,...d.data()}));
     if(selId) renderDet(selId);
-    if(document.getElementById('pg-leaderboard').classList.contains('on')) renderLB();
-    if(document.getElementById('pg-admin').classList.contains('on')) renderAdmin();
+    if(document.getElementById('pg-leaderboard').classList.contains('on'))     renderLB();
+    if(document.getElementById('pg-admin').classList.contains('on'))           renderAdmin();
+    if(document.getElementById('pg-accomplishments').classList.contains('on')) renderAccomplishments();
   });
   // Users — real-time
   onSnapshot(collection(db,'users'), snap=>{
@@ -795,12 +812,48 @@ function nav(pg){
   const p=document.getElementById('pg-'+pg); if(!p)return;
   p.classList.add('on');
   const t=document.getElementById('tab-'+pg); if(t)t.classList.add('on');
-  if(pg==='leaderboard') renderLB();
-  if(pg==='roulette')    renderRoulette();
-  if(pg==='submit')      renderSubmitArea();
-  if(pg==='admin')       renderAdmin();
+  if(pg==='leaderboard')     renderLB();
+  if(pg==='roulette')        renderRoulette();
+  if(pg==='submit')          renderSubmitArea();
+  if(pg==='admin')           renderAdmin();
+  if(pg==='accomplishments') renderAccomplishments();
 }
 window.nav = nav;
+
+function renderAccomplishments(){
+  const acc=subs.filter(s=>s.status==='accepted').sort((a,b)=>(b.ts||0)-(a.ts||0));
+  const lvMap=Object.fromEntries(levels.map(l=>[l.id,l]));
+  const box=document.getElementById('accContent');
+  if(!acc.length){
+    box.innerHTML=`<div style="text-align:center;padding:60px 20px;color:var(--mut)">
+      <div style="font-size:3rem;opacity:.12;margin-bottom:16px">🏆</div>
+      <div style="font-family:'Cinzel',serif;font-size:1.1rem;font-weight:700;margin-bottom:8px">No accomplishments yet</div>
+      <div style="font-size:.85rem;line-height:1.7">Accomplishments will appear here as players complete levels.</div>
+    </div>`;
+    return;
+  }
+  box.innerHTML=`<div style="display:flex;flex-direction:column;gap:10px;max-width:680px">
+    ${acc.map(r=>{
+      const lv=lvMap[r.levelId];
+      const isTop=lv&&lv.rank<=3;
+      const borderCol=lv?.rank===1?'var(--gold)':lv?.rank===2?'var(--slvr)':lv?.rank===3?'var(--brnz)':'var(--b2)';
+      return `<div style="background:var(--bg2);border:1px solid ${borderCol};border-radius:8px;padding:14px 18px;display:flex;align-items:center;gap:16px;">
+        <div style="font-size:1.6rem;flex-shrink:0">${lv?.rank===1?'🥇':lv?.rank===2?'🥈':lv?.rank===3?'🥉':'⭐'}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:.95rem">${esc(r.player)}${r.mobile?'<span class="mob-badge" style="margin-left:6px">Mobile</span>':''}</div>
+          <div style="font-size:.8rem;color:var(--mut);margin-top:2px">
+            Completed <span style="color:var(--txt);font-weight:600">${lv?esc(lv.name):'Unknown Level'}</span>
+            ${lv?`<span style="color:var(--mut)"> (Rank #${lv.rank})</span>`:''}
+            at <span style="color:var(--gold);font-family:'Syne Mono',monospace">${r.pct}%</span>
+          </div>
+          <div style="font-size:.72rem;color:var(--mut);margin-top:2px">${r.date||''}</div>
+        </div>
+        ${r.vidUrl?`<a href="${esc(r.vidUrl)}" target="_blank" class="r-link" style="flex-shrink:0;font-size:.75rem">Watch ↗</a>`:''}
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+window.renderAccomplishments = renderAccomplishments;
 
 // ═══════════════════════════════════════════
 //  AUTH — user accounts (stored in Firestore)
