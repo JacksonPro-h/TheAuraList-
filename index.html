@@ -1177,6 +1177,7 @@ function renderDet(id){
               <td class="r-player"><span class="player-link" onclick="viewProfile(this.dataset.n)" data-n="${r.player}">${esc(r.player)}</span>${r.mobile?'<span class="mob-badge">Mobile</span>':''}</td>
               <td class="r-pct">${r.pct}%</td>
               <td>${r.vidUrl?`<a class="r-link" href="${esc(r.vidUrl)}" target="_blank">Watch ↗</a>`:'—'}</td>
+              ${isAdmin?`<td><button onclick="deleteSub('${r.id}')" style="padding:2px 7px;border-radius:3px;border:1px solid rgba(248,113,113,.3);background:transparent;color:var(--err);font-size:.62rem;font-weight:700;text-transform:uppercase;cursor:pointer;font-family:'Syne',sans-serif">✕</button></td>`:'<td></td>'}
             </tr>`).join('')}</tbody>
           </table>`}
     </div>`;
@@ -1411,6 +1412,7 @@ function renderAdmin(){
         <span style="color:var(--mut);font-size:.76rem">on ${lv?esc(lv.name):'?'}</span>
         <span style="color:var(--mut);font-size:.72rem;margin-left:auto">${s.pct}% · ${s.date}</span>
         ${s.vidUrl?`<a class="r-link" href="${esc(s.vidUrl)}" target="_blank" style="font-size:.7rem">Video ↗</a>`:''}
+        <button onclick="deleteSub('${s.id}')" style="margin-left:6px;padding:2px 8px;border-radius:3px;border:1px solid rgba(248,113,113,.3);background:transparent;color:var(--err);font-size:.65rem;font-weight:700;text-transform:uppercase;cursor:pointer;font-family:'Syne',sans-serif" onmouseover="this.style.background='rgba(248,113,113,.12)'" onmouseout="this.style.background='transparent'">✕ Delete</button>
       </div>`;
     }).join('');
 }
@@ -1420,6 +1422,13 @@ async function reviewSub(id,status){
   toast(status==='accepted'?'Record accepted! ✓':'Record rejected.', status==='accepted'?'ok':'err');
 }
 window.reviewSub = reviewSub;
+
+async function deleteSub(id){
+  if(!confirm('Permanently delete this submission? This cannot be undone.')) return;
+  await db.collection('subs').doc(id).delete();
+  toast('Submission deleted.','err');
+}
+window.deleteSub = deleteSub;
 
 async function toggleBan(uid){
   const u=users.find(x=>x.id===uid);
@@ -1636,6 +1645,7 @@ function renderRunsDet(id){
               <td class="r-player"><span class="player-link" onclick="viewProfile(this.dataset.n)" data-n="${r.player}">${esc(r.player)}</span>${r.mobile?'<span class="mob-badge">Mobile</span>':''}</td>
               <td class="r-pct">${r.pct}%</td>
               <td>${r.vidUrl?`<a class="r-link" href="${esc(r.vidUrl)}" target="_blank">Watch ↗</a>`:'—'}</td>
+              ${isAdmin?`<td><button onclick="deleteSub('${r.id}')" style="padding:2px 7px;border-radius:3px;border:1px solid rgba(248,113,113,.3);background:transparent;color:var(--err);font-size:.62rem;font-weight:700;text-transform:uppercase;cursor:pointer;font-family:'Syne',sans-serif">✕</button></td>`:'<td></td>'}
             </tr>`).join('')}</tbody>
           </table>`}
     </div>`;
